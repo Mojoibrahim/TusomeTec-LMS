@@ -56,9 +56,9 @@ const activities = [
 ];
 
 const initialUsers = [
-  { name: 'Joyce Muthoni', email: 'joyce.muthoni@example.com', role: 'Student', status: 'Active' },
-  { name: 'David Otieno', email: 'david.otieno@example.com', role: 'Teacher', status: 'Active' },
-  { name: 'Faith Njeri', email: 'faith.njeri@example.com', role: 'Student', status: 'Inactive' },
+  { name: 'Joyce Muthoni', email: 'joyce.muthoni@example.com', role: 'student', status: 'Active' },
+  { name: 'David Otieno', email: 'david.otieno@example.com', role: 'instructor', status: 'Active' },
+  { name: 'Faith Njeri', email: 'faith.njeri@example.com', role: 'student', status: 'Inactive' },
 ];
 
 const initialFees = [
@@ -666,7 +666,7 @@ function AdminDashboard() {
                     {managedUsers.map((record, index) => (
                       <tr key={`${record.email}-${index}`}>
                         <td><strong>{record.name}</strong><small>{record.email}</small></td>
-                        <td><select aria-label={`Role for ${record.name}`} value={record.role} onChange={(event) => updateUserRole(index, event.target.value)}><option>Student</option><option>Teacher</option><option>Administrator</option></select></td>
+                        <td><select aria-label={`Role for ${record.name}`} value={record.role} onChange={(event) => updateUserRole(index, event.target.value)}><option value="student">Student</option><option value="instructor">Instructor</option><option value="admin">Admin</option></select></td>
                         <td><button className={`account-toggle${record.status === 'Active' ? ' is-enabled' : ''}`} type="button" onClick={() => toggleUserStatus(index)}>{record.status}</button></td>
                       </tr>
                     ))}

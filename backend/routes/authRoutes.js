@@ -2,8 +2,8 @@
 const express = require('express');
 const router = express.Router();
 const multer = require('multer');
-const Staff = require('../models/Staff');
-const { registerStaff, loginStaff, verifyOTP, getOAuthSession } = require('../controllers/authController');
+const User = require('../models/User');
+const { registerUser, loginUser, verifyOTP, getOAuthSession } = require('../controllers/authController');
 const { protect, authorize } = require('../middlewares/authMiddleware');
 
 const uploadProfilePicture = multer({
@@ -26,8 +26,8 @@ const parseProfilePicture = (req, res, next) => {
 };
 
 // Public Routes
-router.post('/register', registerStaff);
-router.post('/login', loginStaff);
+router.post('/register', registerUser);
+router.post('/login', loginUser);
 router.post('/verify-otp', verifyOTP);
 router.get('/oauth-session', getOAuthSession);
 
@@ -82,7 +82,7 @@ router.post('/logout', (req, res) => {
 // Admin-Only Routes
 router.get('/admin/users', protect, authorize('admin'), async(req, res) => {
     try {
-        const users = await Staff.find().select('-password -otp -otpExpiry');
+        const users = await User.find().select('-password -otp -otpExpiry');
         res.status(200).json(users);
     } catch (err) {
         res.status(500).json({ message: 'Failed to fetch users' });

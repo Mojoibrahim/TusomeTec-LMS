@@ -1,6 +1,6 @@
 // middleware/authMiddleware.js
 const jwt = require('jsonwebtoken');
-const Staff = require('../models/Staff');
+const User = require('../models/User');
 
 // Layer 1 & 2: Authenticate Identity
 exports.protect = async(req, res, next) => {
@@ -21,7 +21,7 @@ exports.protect = async(req, res, next) => {
         const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecretkey');
 
 // Fetch current user details excluding password to keep req.user fresh
-        const currentUser = await Staff.findById(decoded.id).select('-password');
+        const currentUser = await User.findById(decoded.id).select('-password');
         if (!currentUser) {
             return res.status(401).json({ message: 'User belonging to this token no longer exists' });
         }

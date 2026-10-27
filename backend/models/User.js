@@ -1,7 +1,7 @@
-// models/Staff.js
+// models/User.js
 const mongoose = require('mongoose');
 
-const staffSchema = new mongoose.Schema({
+const userSchema = new mongoose.Schema({
     email: {
         type: String,
         required: [true, 'Email is required'],
@@ -81,4 +81,4 @@ const staffSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-module.exports = mongoose.model('Staff', staffSchema);
+module.exports = mongoose.model('User', userSchema);
