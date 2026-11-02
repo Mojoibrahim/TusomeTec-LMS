@@ -60,10 +60,62 @@ function getCropPreviewStyle(selectedPicture, cropX, cropY, zoom) {
   };
 }
 
+const studentProfileSections = [
+  {
+    title: 'Personal details',
+    fields: [
+      { name: 'firstName', label: 'First name', autoComplete: 'given-name' },
+      { name: 'secondName', label: 'Second name' },
+      { name: 'lastName', label: 'Last name', autoComplete: 'family-name' },
+      { name: 'preferredName', label: 'Preferred name', autoComplete: 'nickname' },
+      { name: 'dateOfBirth', label: 'Date of birth', type: 'date' },
+      { name: 'gender', label: 'Gender', autoComplete: 'sex' },
+      { name: 'countryOfOrigin', label: 'Country of origin', autoComplete: 'country-name' },
+    ],
+  },
+  {
+    title: 'Address information',
+    fields: [
+      { name: 'countryOfResidence', label: 'Country of residence', autoComplete: 'country-name' },
+      { name: 'streetOfResidence', label: 'Street of residence', autoComplete: 'street-address' },
+      { name: 'countyOfResidence', label: 'County of residence' },
+      { name: 'postalCode', label: 'Zip/Postal code', autoComplete: 'postal-code' },
+    ],
+  },
+  {
+    title: 'Contact information',
+    fields: [
+      { name: 'email', label: 'Primary email address', type: 'email', autoComplete: 'email', required: true },
+      { name: 'phoneNumber', label: 'Phone number', type: 'tel', autoComplete: 'tel' },
+    ],
+  },
+];
+
+function getStudentDetails(user) {
+  const nameParts = (user.name || '').trim().split(/\s+/).filter(Boolean);
+  const dateOfBirth = user.dateOfBirth ? new Date(user.dateOfBirth) : null;
+  return {
+    firstName: user.firstName ?? nameParts[0] ?? '',
+    secondName: user.secondName ?? (nameParts.length > 2 ? nameParts.slice(1, -1).join(' ') : ''),
+    lastName: user.lastName ?? (nameParts.length > 1 ? nameParts[nameParts.length - 1] : ''),
+    preferredName: user.preferredName || '',
+    dateOfBirth: dateOfBirth && !Number.isNaN(dateOfBirth.getTime()) ? dateOfBirth.toISOString().slice(0, 10) : '',
+    gender: user.gender || '',
+    countryOfOrigin: user.countryOfOrigin || '',
+    countryOfResidence: user.countryOfResidence || '',
+    streetOfResidence: user.streetOfResidence || '',
+    countyOfResidence: user.countyOfResidence || '',
+    postalCode: user.postalCode || '',
+    email: user.email || '',
+    phoneNumber: user.phoneNumber || '',
+  };
+}
+
 function ProfileEditor({ user, onUpdated, className, avatarClassName, copyClassName, roleLabel, showChevron = true }) {
   const [isOpen, setIsOpen] = useState(false);
   const [name, setName] = useState(user.name || '');
   const [department, setDepartment] = useState(user.department || 'Unassigned');
+  const [studentDetails, setStudentDetails] = useState(() => getStudentDetails(user));
   const [selectedPicture, setSelectedPicture] = useState(null);
   const [picturePreview, setPicturePreview] = useState(user.profilePicture || '');
   const [cropX, setCropX] = useState(50);
@@ -79,6 +131,7 @@ function ProfileEditor({ user, onUpdated, className, avatarClassName, copyClassN
   const openEditor = () => {
     setName(user.name || roleLabel);
     setDepartment(user.department || 'Unassigned');
+    setStudentDetails(getStudentDetails(user));
     setSelectedPicture(null);
     setPicturePreview(user.profilePicture || '');
     setCropX(50);
@@ -124,8 +177,12 @@ function ProfileEditor({ user, onUpdated, className, avatarClassName, copyClassN
     setIsSaving(true);
 
     const formData = new FormData();
-    formData.append('name', name.trim());
-    formData.append('department', department.trim());
+    if (user.role?.toLowerCase() === 'student') {
+      Object.entries(studentDetails).forEach(([field, value]) => formData.append(field, value));
+    } else {
+      formData.append('name', name.trim());
+      formData.append('department', department.trim());
+    }
     try {
       if (selectedPicture) {
         const croppedPicture = await createCroppedPicture(selectedPicture, cropX, cropY, zoom);
@@ -196,18 +253,43 @@ function ProfileEditor({ user, onUpdated, className, avatarClassName, copyClassN
             </label>
             <small>JPEG, PNG, or WebP · up to 3 MB · saved at up to 500 × 500 px</small>
           </div>
-          <label className="profile-editor-field">
-            Full name
-            <input autoComplete="name" maxLength={100} onChange={(event) => setName(event.target.value)} required value={name} />
-          </label>
-          <label className="profile-editor-field">
-            Email
-            <input readOnly value={user.email || ''} />
-          </label>
-          <label className="profile-editor-field">
-            Department
-            <input maxLength={100} onChange={(event) => setDepartment(event.target.value)} required value={department} />
-          </label>
+          {user.role?.toLowerCase() === 'student' ? (
+            studentProfileSections.map((section) => (
+              <section className="profile-editor-section" key={section.title}>
+                <h3>{section.title}</h3>
+                <div className="profile-editor-fields">
+                  {section.fields.map((field) => (
+                    <label className="profile-editor-field" key={field.name}>
+                      {field.label}
+                      <input
+                        autoComplete={field.autoComplete}
+                        maxLength={field.type === 'email' ? 254 : undefined}
+                        onChange={(event) => setStudentDetails((current) => ({ ...current, [field.name]: event.target.value }))}
+                        required={field.required}
+                        type={field.type || 'text'}
+                        value={studentDetails[field.name]}
+                      />
+                    </label>
+                  ))}
+                </div>
+              </section>
+            ))
+          ) : (
+            <>
+              <label className="profile-editor-field">
+                Full name
+                <input autoComplete="name" maxLength={100} onChange={(event) => setName(event.target.value)} required value={name} />
+              </label>
+              <label className="profile-editor-field">
+                Email
+                <input readOnly value={user.email || ''} />
+              </label>
+              <label className="profile-editor-field">
+                Department
+                <input maxLength={100} onChange={(event) => setDepartment(event.target.value)} required value={department} />
+              </label>
+            </>
+          )}
           {error && <p className="profile-editor-error" role="alert">{error}</p>}
           <footer className="profile-editor-actions">
             <button className="profile-editor-cancel" disabled={isSaving} onClick={() => setIsOpen(false)} type="button">Cancel</button>

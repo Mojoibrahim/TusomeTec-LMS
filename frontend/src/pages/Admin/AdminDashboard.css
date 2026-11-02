@@ -1812,6 +1812,72 @@
   color: #b55353;
 }
 
+.directory-profile-link {
+  border-radius: 3px;
+}
+
+.directory-profile-link:hover,
+.directory-profile-link:focus-visible {
+  color: #6250ce !important;
+  text-decoration: underline !important;
+}
+
+.user-profile-heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 20px;
+  border-bottom: 1px solid #f1f2f6;
+}
+
+.user-profile-avatar {
+  width: 64px;
+  height: 64px;
+  flex: 0 0 64px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.user-profile-initial {
+  display: grid;
+  place-items: center;
+  color: #6250ce;
+  background: #f0edff;
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.user-profile-heading h1 {
+  margin: 0;
+  color: #39435b;
+  font-size: 20px;
+}
+
+.user-profile-heading p {
+  margin: 5px 0 0;
+  color: #8790a4;
+  font-size: 12px;
+}
+
+.user-profile-fields {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 16px;
+  margin: 20px 0 0;
+}
+
+.user-profile-fields dt {
+  color: #9299aa;
+  font-size: 10px;
+}
+
+.user-profile-fields dd {
+  margin: 4px 0 0;
+  color: #39435b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 @media (max-width: 960px) {
   .admin-tools-grid {
     grid-template-columns: 1fr;

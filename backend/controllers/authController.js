@@ -127,7 +127,19 @@ exports.verifyOTP = async(req, res) => {
                 name: user.name,
                 role: user.role,
                 department: user.department,
-                profilePicture: user.profilePicture
+                profilePicture: user.profilePicture,
+                firstName: user.firstName,
+                secondName: user.secondName,
+                lastName: user.lastName,
+                preferredName: user.preferredName,
+                dateOfBirth: user.dateOfBirth,
+                gender: user.gender,
+                countryOfOrigin: user.countryOfOrigin,
+                countryOfResidence: user.countryOfResidence,
+                streetOfResidence: user.streetOfResidence,
+                countyOfResidence: user.countyOfResidence,
+                postalCode: user.postalCode,
+                phoneNumber: user.phoneNumber
             }
         });
     } catch (error) {
@@ -148,7 +160,19 @@ exports.getOAuthSession = (req, res) => {
         name: req.user.name,
         role: req.user.role,
         department: req.user.department,
-        profilePicture: req.user.profilePicture
+        profilePicture: req.user.profilePicture,
+        firstName: req.user.firstName,
+        secondName: req.user.secondName,
+        lastName: req.user.lastName,
+        preferredName: req.user.preferredName,
+        dateOfBirth: req.user.dateOfBirth,
+        gender: req.user.gender,
+        countryOfOrigin: req.user.countryOfOrigin,
+        countryOfResidence: req.user.countryOfResidence,
+        streetOfResidence: req.user.streetOfResidence,
+        countyOfResidence: req.user.countyOfResidence,
+        postalCode: req.user.postalCode,
+        phoneNumber: req.user.phoneNumber
     };
     const token = jwt.sign({ id: user.id, role: user.role },
         process.env.JWT_SECRET || 'supersecretkey', { expiresIn: '1d' }

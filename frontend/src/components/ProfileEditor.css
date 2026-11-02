@@ -96,6 +96,34 @@
   padding: 20px 24px 24px;
 }
 
+.profile-editor-section {
+  display: grid;
+  gap: 11px;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.profile-editor-section h3 {
+  margin: 0;
+  padding-bottom: 7px;
+  border-bottom: 1px solid #eff0f4;
+  color: #202943;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.profile-editor-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.profile-editor-fields .profile-editor-field:has(input[type="email"]),
+.profile-editor-fields .profile-editor-field:has(input[autocomplete="street-address"]) {
+  grid-column: 1 / -1;
+}
+
 .profile-editor-picture {
   display: grid;
   justify-items: center;
@@ -203,6 +231,10 @@
   font-size: 13px;
 }
 
+.profile-editor-field input[type="date"] {
+  padding-right: 8px;
+}
+
 .profile-editor-field input:read-only {
   color: #81899b;
   background: #f7f8fb;
@@ -252,5 +284,14 @@
   .profile-editor-form {
     padding-right: 17px;
     padding-left: 17px;
+  }
+
+  .profile-editor-fields {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-editor-fields .profile-editor-field:has(input[type="email"]),
+  .profile-editor-fields .profile-editor-field:has(input[autocomplete="street-address"]) {
+    grid-column: auto;
   }
 }

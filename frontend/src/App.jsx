@@ -6,9 +6,10 @@ import OAuthCallback from './Auth/OAuthCallback';
 import './App.css';
 
 // Role-Specific Dashboards
-import AdminDashboard from './pages/Admin/Dashboard';
-import InstructorDashboard from './pages/Instructor/Dashboard';
-import StudentDashboard from './pages/Student/TestDashboard';
+import AdminDashboard from './pages/Admin/AdminDashboard';
+import AdminUserProfile from './pages/Admin/AdminUserProfile';
+import InstructorDashboard from './pages/Instructor/InstructorDashboard';
+import StudentDashboard from './pages/Student/StudentDashboard';
 
 // Security Component
 import ProtectedRoute from './components/ProtectedRoute';
@@ -45,6 +46,7 @@ function App() {
         {/* Admin Portal */}
         <Route element={<ProtectedRoute allowedRoles={['admin']} />}>
           <Route path="/admin/dashboard" element={<AdminDashboard />} />
+          <Route path="/admin/users/:userId" element={<AdminUserProfile />} />
         </Route>
 
         {/* Instructor Portal */}

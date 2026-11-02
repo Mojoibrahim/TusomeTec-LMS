@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import FloatingChatBot from '../../components/FloatingChatBot';
 import ProfileEditor from '../../components/ProfileEditor';
-import './Dashboard.css';
+import './InstructorDashboard.css';
 
 const courses = [
   { id: 'digital', title: 'Digital Skills for the Workplace', category: 'Digital literacy', learners: 84, completion: 76, lessons: 12, color: 'violet', initials: 'DS', updated: 'Updated 2 days ago' },

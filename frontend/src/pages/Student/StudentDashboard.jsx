@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import PaymentForm from '../../PaymentForm';
 import FloatingChatBot from '../../components/FloatingChatBot';
 import ProfileEditor from '../../components/ProfileEditor';
-import './TestDashboard.css';
+import './StudentDashboard.css';
 
 const courses = [
   { title: 'Introduction to UI/UX Design', category: 'Design', progress: 72, color: 'purple', initials: 'UI' },

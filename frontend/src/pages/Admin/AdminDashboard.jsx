@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   Area,
   AreaChart,
@@ -12,7 +12,7 @@ import {
 } from 'recharts';
 import FloatingChatBot from '../../components/FloatingChatBot';
 import ProfileEditor from '../../components/ProfileEditor';
-import './Dashboard.css';
+import './AdminDashboard.css';
 
 const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5000';
 
@@ -76,7 +76,8 @@ const initialApprovals = [
 const navItems = [
   { label: 'Overview', icon: 'grid', target: 'dashboard' },
   { label: 'Courses', icon: 'book', target: 'courses' },
-  { label: 'People', icon: 'users', target: 'learners' },
+  { label: 'Learners', icon: 'users', target: 'learners' },
+  { label: 'Instructors', icon: 'users', target: 'instructors' },
   { label: 'Payments', icon: 'wallet', target: 'revenue' },
   { label: 'Reports', icon: 'chart', target: 'enrollment' },
 ];
@@ -614,7 +615,12 @@ function AdminDashboard() {
                     {directoryLoading && <tr><td className="directory-message" colSpan="4">Loading registered students…</td></tr>}
                     {!directoryLoading && !directoryError && students.map((student) => (
                       <tr key={student._id || student.id || student.email}>
-                        <td><strong>{student.name || 'Name not provided'}</strong><small>{student.email}</small></td>
+                        <td>
+                          <Link className="directory-profile-link" to={`/admin/users/${encodeURIComponent(student._id || student.id || student.email)}`}>
+                            <strong>{student.name || 'Name not provided'}</strong>
+                          </Link>
+                          <small>{student.email}</small>
+                        </td>
                         <td>{getStudentCourse(student)}</td>
                         <td>{getStudentClass(student)}</td>
                         <td>{getEnrollmentYear(student) || 'Not recorded'}</td>
@@ -638,7 +644,12 @@ function AdminDashboard() {
                     {directoryLoading && <tr><td className="directory-message" colSpan="3">Loading instructors…</td></tr>}
                     {!directoryLoading && !directoryError && instructors.map((instructor) => (
                       <tr key={instructor._id || instructor.id || instructor.email}>
-                        <td><strong>{instructor.name || 'Name not provided'}</strong><small>{instructor.email}</small></td>
+                        <td>
+                          <Link className="directory-profile-link" to={`/admin/users/${encodeURIComponent(instructor._id || instructor.id || instructor.email)}`}>
+                            <strong>{instructor.name || 'Name not provided'}</strong>
+                          </Link>
+                          <small>{instructor.email}</small>
+                        </td>
                         <td>{instructor.department || 'Not assigned'}</td>
                         <td>{getEnrollmentYear(instructor) || 'Not recorded'}</td>
                       </tr>

@@ -36,6 +36,18 @@ const userSchema = new mongoose.Schema({
         default: 'New User',
         trim: true
     },
+    firstName: { type: String, trim: true, maxlength: 100 },
+    secondName: { type: String, trim: true, maxlength: 100 },
+    lastName: { type: String, trim: true, maxlength: 100 },
+    preferredName: { type: String, trim: true, maxlength: 100 },
+    dateOfBirth: { type: Date },
+    gender: { type: String, trim: true, maxlength: 50 },
+    countryOfOrigin: { type: String, trim: true, maxlength: 100 },
+    countryOfResidence: { type: String, trim: true, maxlength: 100 },
+    streetOfResidence: { type: String, trim: true, maxlength: 200 },
+    countyOfResidence: { type: String, trim: true, maxlength: 100 },
+    postalCode: { type: String, trim: true, maxlength: 30 },
+    phoneNumber: { type: String, trim: true, maxlength: 30 },
     profilePicture: {
         type: String,
         default: ''
