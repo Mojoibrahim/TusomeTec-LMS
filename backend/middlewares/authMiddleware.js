@@ -18,7 +18,7 @@ exports.protect = async(req, res, next) => {
     }
 
     try {
-        const decoded = jwt.verify(token, process.env.JWT_SECRET || 'supersecretkey');
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
 // Fetch current user details excluding password to keep req.user fresh
         const currentUser = await User.findById(decoded.id).select('-password');

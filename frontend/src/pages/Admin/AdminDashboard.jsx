@@ -76,9 +76,9 @@ const initialApprovals = [
 const navItems = [
   { label: 'Overview', icon: 'grid', target: 'dashboard' },
   { label: 'Courses', icon: 'book', target: 'courses' },
-  { label: 'Learners', icon: 'users', target: 'learners' },
-  { label: 'Instructors', icon: 'users', target: 'instructors' },
-  { label: 'Payments', icon: 'wallet', target: 'revenue' },
+  { label: 'Students', icon: 'users', target: 'students' },
+  { label: 'Instructors', icon: 'users', target: 'instructors', count: '3' },
+  { label: 'Fees', icon: 'wallet', target: 'fees' },
   { label: 'Reports', icon: 'chart', target: 'enrollment' },
 ];
 
@@ -230,13 +230,12 @@ function AdminDashboard() {
   const sectionTitles = {
     overview: 'Overview',
     courses: 'Courses',
-    people: 'People',
+    students: 'Students',
     instructors: 'Instructors',
     assessments: 'Assessments',
-    payments: 'Payments',
+    fees: 'Fees',
     reports: 'Reports',
     'user-management': 'User & roles',
-    'fee-access': 'Fee access',
     curriculum: 'CBC approvals',
     'audit-reports': 'Audit trails',
     communications: 'Communications',
@@ -244,13 +243,17 @@ function AdminDashboard() {
   const sectionByTarget = {
     dashboard: 'overview',
     courses: 'courses',
-    learners: 'people',
-    revenue: 'payments',
-    enrollment: 'reports',
+    people: 'students',
+    learners: 'students',
+    students: 'students',
     instructors: 'instructors',
+    revenue: 'fees',
+    payments: 'fees',
+    fees: 'fees',
+    enrollment: 'reports',
     assessments: 'assessments',
     'user-management': 'user-management',
-    'fee-access': 'fee-access',
+    'fee-access': 'fees',
     curriculum: 'curriculum',
     'audit-reports': 'audit-reports',
     communications: 'communications',
@@ -258,13 +261,12 @@ function AdminDashboard() {
   const activeNavBySection = {
     overview: 'Overview',
     courses: 'Courses',
-    people: 'People',
-    instructors: 'People',
+    students: 'Students',
+    instructors: 'Instructors',
     assessments: 'Courses',
-    payments: 'Payments',
+    fees: 'Fees',
     reports: 'Reports',
-    'user-management': 'People',
-    'fee-access': 'Payments',
+    'user-management': '',
     curriculum: 'Courses',
     'audit-reports': 'Reports',
     communications: 'Overview',
@@ -409,6 +411,7 @@ function AdminDashboard() {
             >
               <Icon name={item.icon} size={19} />
               <span>{item.label}</span>
+              {item.count && <span className={item.label === 'Instructors' ? 'nav-pending' : 'nav-count'}>{item.count}</span>}
               {item.label === 'Courses' && <span className="nav-count">24</span>}
             </a>
           ))}
@@ -416,17 +419,11 @@ function AdminDashboard() {
 
         <div className="sidebar-divider" />
         <span className="sidebar-section-label">MANAGE</span>
-        <a className={`admin-nav-link${activeSection === 'instructors' ? ' is-active' : ''}`} href="#instructors" onClick={() => setActiveNav('People')}>
-          <Icon name="users" size={19} /><span>Instructors</span><span className="nav-pending">3</span>
-        </a>
         <a className={`admin-nav-link${activeSection === 'assessments' ? ' is-active' : ''}`} href="#assessments" onClick={() => setActiveNav('Courses')}>
           <Icon name="check" size={19} /><span>Assessments</span>
         </a>
-        <a className={`admin-nav-link${activeSection === 'user-management' ? ' is-active' : ''}`} href="#user-management" onClick={() => setActiveNav('People')}>
+        <a className={`admin-nav-link${activeSection === 'user-management' ? ' is-active' : ''}`} href="#user-management">
           <Icon name="users" size={19} /><span>User &amp; roles</span>
-        </a>
-        <a className={`admin-nav-link${activeSection === 'fee-access' ? ' is-active' : ''}`} href="#fee-access" onClick={() => setActiveNav('Payments')}>
-          <Icon name="wallet" size={19} /><span>Fee access</span>
         </a>
         <a className={`admin-nav-link${activeSection === 'curriculum' ? ' is-active' : ''}`} href="#curriculum" onClick={() => setActiveNav('Courses')}>
           <Icon name="book" size={19} /><span>CBC approvals</span>
@@ -541,7 +538,7 @@ function AdminDashboard() {
             </article>
 
             <article className="panel activity-panel" style={visibleWhen('overview')}>
-              <div className="panel-heading"><div><h2>Recent activity</h2><p>Latest updates from your learners</p></div><button className="text-link" type="button" onClick={() => { setActiveNav('People'); setActiveSection('people'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>View all <Icon name="chevron" size={14} /></button></div>
+              <div className="panel-heading"><div><h2>Recent activity</h2><p>Latest updates from your learners</p></div><button className="text-link" type="button" onClick={() => { setActiveNav('Students'); setActiveSection('students'); window.scrollTo({ top: 0, behavior: 'smooth' }); }}>View all <Icon name="chevron" size={14} /></button></div>
               <div className="activity-list">
                 {activities.map((activity) => (
                   <div className="activity-item" key={activity.name}>
@@ -554,7 +551,7 @@ function AdminDashboard() {
             </article>
           </section>
 
-          <section className="lower-grid" style={{ ...visibleWhen('overview', 'courses', 'instructors', 'assessments'), gridTemplateColumns: activeSection === 'overview' ? undefined : 'minmax(0, 1fr)' }}>
+          <section className="lower-grid" style={{ ...visibleWhen('overview', 'courses', 'assessments'), gridTemplateColumns: activeSection === 'overview' ? undefined : 'minmax(0, 1fr)' }}>
             <article className="panel courses-panel" id="courses" style={visibleWhen('overview', 'courses')}>
               <div className="panel-heading courses-heading">
                 <div><h2>Course performance</h2><p>Review engagement and learner progress</p></div>
@@ -582,7 +579,7 @@ function AdminDashboard() {
               </div>
             </article>
 
-            <article className="panel attention-panel" style={visibleWhen('overview', 'instructors', 'assessments')}>
+            <article className="panel attention-panel" style={visibleWhen('overview', 'assessments')}>
               <div className="panel-heading"><div><h2>Needs your attention</h2><p>A few things to keep moving</p></div><span className="attention-count">3</span></div>
               <a className="attention-item" href="mailto:support@tusometec.com?subject=Instructor%20review">
                 <span className="attention-icon attention-purple"><Icon name="users" size={17} /></span><span className="attention-copy"><strong>Instructor approvals</strong><small>3 profiles awaiting review</small></span><Icon name="chevron" size={15} />
@@ -594,8 +591,8 @@ function AdminDashboard() {
             </article>
           </section>
 
-          <section className="admin-tools-grid" aria-label="Institution management tools" style={{ ...visibleWhen('overview', 'people', 'instructors', 'payments', 'curriculum', 'reports', 'communications', 'user-management', 'fee-access', 'audit-reports'), gridTemplateColumns: activeSection === 'overview' ? undefined : 'minmax(0, 1fr)' }}>
-            <article className="panel management-panel directory-panel" id="learners" style={visibleWhen('overview', 'people')}>
+          <section className="admin-tools-grid" aria-label="Institution management tools" style={{ ...visibleWhen('overview', 'students', 'instructors', 'fees', 'curriculum', 'reports', 'communications', 'user-management', 'audit-reports'), gridTemplateColumns: activeSection === 'overview' ? undefined : 'minmax(0, 1fr)' }}>
+            <article className="panel management-panel directory-panel" id="learners" style={visibleWhen('overview', 'students')}>
               <div className="panel-heading management-heading">
                 <div><h2>Registered students</h2><p>{students.length} student{students.length === 1 ? '' : 's'} in the directory</p></div>
                 <label className="directory-sort-label" htmlFor="student-sort">Sort by
@@ -660,7 +657,7 @@ function AdminDashboard() {
               </div>
             </article>
 
-            <article className="panel management-panel" id="user-management" style={visibleWhen('overview', 'people', 'user-management')}>
+            <article className="panel management-panel" id="user-management" style={visibleWhen('overview', 'user-management')}>
               <div className="panel-heading management-heading">
                 <div><h2>User &amp; role management</h2><p>Import, export, and manage account access</p></div>
                 <button className="export-button compact-button" type="button" onClick={exportUsers}>Export users</button>
@@ -686,7 +683,8 @@ function AdminDashboard() {
               </div>
             </article>
 
-            <article className="panel fee-panel" id="fee-access" style={visibleWhen('overview', 'payments', 'fee-access')}>
+            <article className="panel fee-panel" id="fees" style={visibleWhen('overview', 'fees')}>
+              <span id="fee-access" />
               <div className="panel-heading management-heading">
                 <div><h2>Fee status &amp; access</h2><p>Clearance linked to exam and course access</p></div>
               </div>
@@ -747,7 +745,7 @@ function AdminDashboard() {
               <form className="broadcast-form" onSubmit={prepareBroadcast}>
                 <div className="broadcast-options">
                   <label>Channel<select value={announcementChannel} onChange={(event) => setAnnouncementChannel(event.target.value)}><option>Email</option><option>SMS</option></select></label>
-                  <label>Audience<select value={announcementAudience} onChange={(event) => setAnnouncementAudience(event.target.value)}><option>Parents</option><option>Students</option><option>Staff</option></select></label>
+                  <label>Audience<select value={announcementAudience} onChange={(event) => setAnnouncementAudience(event.target.value)}><option>All</option><option>Parents</option><option>Students</option><option>Staff</option></select></label>
                 </div>
                 <label className="broadcast-message-label">Announcement<textarea rows="3" value={announcement} onChange={(event) => setAnnouncement(event.target.value)} placeholder="Write an urgent notice or update..." /></label>
                 <button className="broadcast-button" type="submit">Prepare broadcast</button>

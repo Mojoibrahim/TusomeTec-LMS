@@ -21,16 +21,18 @@ const backendUrl = (process.env.BACKEND_URL || `http://localhost:${PORT}`).repla
 const googleClientId = process.env.GOOGLE_CLIENT_ID;
 const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
 
+const jwtSecret = process.env.JWT_SECRET;
+if (!jwtSecret || Buffer.byteLength(jwtSecret, 'utf8') < 32) {
+    throw new Error('JWT_SECRET must be configured with at least 32 bytes to sign and verify authentication tokens');
+}
+
 // Middleware
 app.use(cors({ origin: frontendOrigin, credentials: true }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.set('trust proxy', isProduction ? 1 : false);
 
-const sessionSecret = process.env.SESSION_SECRET || process.env.JWT_SECRET;
-if (!sessionSecret && isProduction) {
-    throw new Error('SESSION_SECRET or JWT_SECRET must be configured in production');
-}
+const sessionSecret = process.env.SESSION_SECRET || jwtSecret;
 
 app.use(session({
     secret: sessionSecret || 'local-development-session-secret',
@@ -163,24 +165,10 @@ app.post('/api/chat', async (req, res) => {
         // 3. Construct the vector context payload
         const vectorContext = searchResults.map(doc => doc.text).join('\n\n');
 
-        // 4. Fetch the latest live transaction from your M-Pesa collection
-        const latestTransaction = await mongoose.connection.db.collection('transactions')
-            .find()
-            .sort({ _id: -1 }) // Sort by newest first
-            .limit(1)
-            .toArray();
+        // 4. Use only knowledge-base content in the model context.
+        const finalContext = `Knowledge Base:\n${vectorContext}`;
 
-        let liveContext = "";
-        if (latestTransaction.length > 0) {
-            const tx = latestTransaction[0];
-            // Adjusted fields to match the amount and phoneNumber fields in your database
-            liveContext = `Live Data: The most recent payment was ${tx.amount || 'an unknown amount'} KES from phone number ${tx.phoneNumber || 'unknown'}.`;
-        }
-
-        // 5. Combine both contexts
-        const finalContext = `Knowledge Base:\n${vectorContext}\n\n${liveContext}`;
-
-        // 6. Generate Answer via OpenRouter
+        // 5. Generate Answer via OpenRouter
         const completion = await openrouter.chat.completions.create({
             model: process.env.OPENROUTER_MODEL || 'meta-llama/llama-3.1-8b-instruct',
             messages: [

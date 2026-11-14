@@ -1,31 +1,50 @@
 const axios = require('axios');
 const moment = require('moment');
 const Transaction = require('../models/Transaction');
+const { getMpesaAccessToken } = require('../middlewares/mpesaAuth');
+
+const mpesaApiUrl = 'https://sandbox.safaricom.co.ke';
 
 // 1. Initiate STK Push
 exports.stkPush = async (req, res) => {
-    // In sandbox, phone must be the test number: 254708374149
-    const { phone, amount} = req.body;
+    const { phone, amount } = req.body || {};
+    const normalizedPhone = typeof phone === 'string' ? phone.trim() : '';
+    const numericAmount = typeof amount === 'number'
+        ? amount
+        : typeof amount === 'string' && /^\d+$/.test(amount)
+            ? Number(amount)
+            : NaN;
+
+    if (!Number.isSafeInteger(numericAmount) || numericAmount < 1) {
+        return res.status(400).json({ error: 'Amount must be a positive whole number' });
+    }
+    if (!/^254[17]\d{8}$/.test(normalizedPhone)) {
+        return res.status(400).json({ error: 'Enter a valid Kenyan mobile number in 254XXXXXXXXX format' });
+    }
+
     const shortcode = process.env.MPESA_SHORTCODE;
     const passkey = process.env.MPESA_PASSKEY;
     const callbackUrl = process.env.MPESA_CALLBACK_URL;
-    
-    // Timestamp must be YYYYMMDDHHmmss format
-    const timestamp = moment().format('YYYYMMDDHHmmss');
-    const password = Buffer.from(`${shortcode}${passkey}${timestamp}`).toString('base64');
+
+    if (!shortcode || !passkey || !callbackUrl) {
+        return res.status(503).json({ error: 'M-Pesa payment configuration is incomplete' });
+    }
     
     try {
+        // Timestamp must be YYYYMMDDHHmmss format
+        const timestamp = moment().format('YYYYMMDDHHmmss');
+        const password = Buffer.from(`${shortcode}${passkey}${timestamp}`).toString('base64');
         const response = await axios.post(
-            'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest',
+            `${mpesaApiUrl}/mpesa/stkpush/v1/processrequest`,
             {
                 BusinessShortCode: shortcode,
                 Password: password,
                 Timestamp: timestamp,
                 TransactionType: 'CustomerPayBillOnline',
-                Amount: amount, 
-                PartyA: phone,
+                Amount: numericAmount,
+                PartyA: normalizedPhone,
                 PartyB: shortcode,
-                PhoneNumber: phone,
+                PhoneNumber: normalizedPhone,
                 CallBackURL: callbackUrl,
                 AccountReference: 'SandboxTest',
                 TransactionDesc: 'Test Payment'
@@ -34,8 +53,28 @@ exports.stkPush = async (req, res) => {
                 headers: {
                     Authorization: `Bearer ${req.mpesaToken}`,
                 },
+                timeout: 10000,
             }
         );
+
+        const { MerchantRequestID, CheckoutRequestID, ResponseCode } = response.data;
+        if (String(ResponseCode) !== '0' || !MerchantRequestID || !CheckoutRequestID) {
+            return res.status(502).json({ error: 'M-Pesa did not accept the payment request' });
+        }
+
+        try {
+            await Transaction.create({
+                merchantRequestID: MerchantRequestID,
+                checkoutRequestID: CheckoutRequestID,
+                amount: numericAmount,
+                phoneNumber: normalizedPhone,
+                status: 'pending'
+            });
+        } catch (error) {
+            console.error('Error recording pending M-Pesa request:', error);
+            return res.status(500).json({ error: 'Payment request was accepted but could not be recorded' });
+        }
+
         res.status(200).json({
             message: "STK Push initiated successfully.",
             data: response.data
@@ -48,47 +87,84 @@ exports.stkPush = async (req, res) => {
 
 // 2. Handle Callback Webhook
 exports.stkCallback = async (req, res) => {
-    // Always respond 200 OK immediately to acknowledge receipt
-    res.status(200).send('Callback received');
-    
-    const callbackData = req.body.Body.stkCallback;
-    const { MerchantRequestID, CheckoutRequestID, ResultCode, ResultDesc, CallbackMetadata } = callbackData;
-    
-    // ResultCode 0 = Success.
-    if (ResultCode === 0 && CallbackMetadata) {
-        const metadata = CallbackMetadata.Item;
-        const amount = metadata.find(item => item.Name === 'Amount')?.Value;
-        const mpesaReceiptNumber = metadata.find(item => item.Name === 'MpesaReceiptNumber')?.Value;
-        const phoneNumber = metadata.find(item => item.Name === 'PhoneNumber')?.Value;
-        const transactionDate = metadata.find(item => item.Name === 'TransactionDate')?.Value;
-        const formattedDate = moment(transactionDate, 'YYYYMMDDHHmmss').toDate();
-        
-        try {
-            await Transaction.create({
-                merchantRequestID: MerchantRequestID,
-                checkoutRequestID: CheckoutRequestID,
-                resultCode: ResultCode,
-                resultDesc: ResultDesc,
-                amount,
-                mpesaReceiptNumber,
-                phoneNumber,
-                transactionDate: formattedDate
-            });
-            console.log(`Sandbox payment of ${amount} received from ${phoneNumber}`);
-        } catch (error) {
-            console.error("Error saving transaction:", error);
+    const callbackData = req.body?.Body?.stkCallback;
+    const merchantRequestID = callbackData?.MerchantRequestID;
+    const checkoutRequestID = callbackData?.CheckoutRequestID;
+
+    if (typeof merchantRequestID !== 'string' || typeof checkoutRequestID !== 'string') {
+        return res.status(400).send('Invalid callback payload');
+    }
+
+    try {
+        const transaction = await Transaction.findOne({ merchantRequestID, checkoutRequestID });
+        if (!transaction) {
+            console.warn('Received M-Pesa callback for an unknown payment request');
+            return res.status(404).send('Payment request not found');
         }
-    } else {
-        console.log(`STK Push Failed: ${ResultDesc}`);
-        try {
-            await Transaction.create({
-                merchantRequestID: MerchantRequestID,
-                checkoutRequestID: CheckoutRequestID,
-                resultCode: ResultCode,
-                resultDesc: ResultDesc
-            });
-        } catch (error) {
-            console.error("Error saving failed transaction:", error);
+
+        if (transaction.status !== 'pending') {
+            return res.status(200).send('Callback already processed');
         }
+
+        const shortcode = process.env.MPESA_SHORTCODE;
+        const passkey = process.env.MPESA_PASSKEY;
+        if (!shortcode || !passkey) {
+            return res.status(503).send('M-Pesa verification is not configured');
+        }
+
+        const accessToken = await getMpesaAccessToken();
+        const timestamp = moment().format('YYYYMMDDHHmmss');
+        const password = Buffer.from(`${shortcode}${passkey}${timestamp}`).toString('base64');
+        const response = await axios.post(
+            `${mpesaApiUrl}/mpesa/stkpushquery/v1/query`,
+            {
+                BusinessShortCode: shortcode,
+                Password: password,
+                Timestamp: timestamp,
+                CheckoutRequestID: checkoutRequestID
+            },
+            {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                },
+                timeout: 10000,
+            }
+        );
+
+        const verification = response.data;
+        if (
+            !verification ||
+            String(verification.ResponseCode) !== '0' ||
+            verification.CheckoutRequestID !== checkoutRequestID ||
+            (verification.MerchantRequestID && verification.MerchantRequestID !== merchantRequestID)
+        ) {
+            throw new Error('M-Pesa verification response did not match the pending payment');
+        }
+
+        const providerResultCode = verification.ResultCode;
+        const validResultCode = (typeof providerResultCode === 'number' && Number.isInteger(providerResultCode)) ||
+            (typeof providerResultCode === 'string' && /^-?\d+$/.test(providerResultCode));
+        if (!validResultCode) {
+            throw new Error('M-Pesa verification response did not include a valid result code');
+        }
+
+        const resultCode = Number(providerResultCode);
+        const update = {
+            status: resultCode === 0 ? 'successful' : 'failed',
+            resultCode
+        };
+        if (typeof verification.ResultDesc === 'string') {
+            update.resultDesc = verification.ResultDesc;
+        }
+
+        await Transaction.updateOne(
+            { _id: transaction._id, status: 'pending' },
+            { $set: update }
+        );
+
+        return res.status(200).send('Callback verified');
+    } catch (error) {
+        console.error('M-Pesa callback verification failed:', error.response?.data || error.message);
+        return res.status(502).send('Unable to verify payment callback');
     }
 };

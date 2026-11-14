@@ -13,6 +13,14 @@ import StudentDashboard from './pages/Student/StudentDashboard';
 
 // Security Component
 import ProtectedRoute from './components/ProtectedRoute';
+import { getDashboardPath } from './utils/dashboardRoutes';
+
+function DashboardRedirect() {
+  const user = JSON.parse(localStorage.getItem('user_data'));
+  const dashboardPath = getDashboardPath(user);
+
+  return <Navigate to={dashboardPath || '/unauthorized'} replace />;
+}
 
 function Unauthorized() {
   return (
@@ -51,17 +59,19 @@ function App() {
 
         {/* Instructor Portal */}
         <Route element={<ProtectedRoute allowedRoles={['instructor', 'admin']} />}>
-          <Route path="/instructor/dashboard" element={<InstructorDashboard />} />
+          <Route path="/instructor/dashboard/:grade?" element={<InstructorDashboard />} />
         </Route>
 
         {/* Student Portal (Formerly TestDashboard) */}
-        <Route element={<ProtectedRoute allowedRoles={['student', 'instructor', 'admin']} />}>
+        <Route element={<ProtectedRoute allowedRoles={['student']} />}>
           <Route path="/student/dashboard" element={<StudentDashboard />} />
           <Route path="/test-dashboard" element={<StudentDashboard />} />
         </Route>
 
-        {/* Fallback for the old dashboard path */}
-        <Route path="/dashboard" element={<Navigate to="/student/dashboard" replace />} />
+        {/* Route legacy dashboard links to the signed-in user's role-specific dashboard */}
+        <Route element={<ProtectedRoute />}>
+          <Route path="/dashboard" element={<DashboardRedirect />} />
+        </Route>
         
         {/* 404 Route */}
         <Route path="*" element={<div style={{ textAlign: 'center', marginTop: '100px' }}><h1>404 - Page Not Found</h1></div>} />

@@ -1,20 +1,25 @@
 // models/User.js
 const mongoose = require('mongoose');
 
+const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const urlPattern = /^https?:\/\/\S+$/i;
+
 const userSchema = new mongoose.Schema({
     email: {
         type: String,
         required: [true, 'Email is required'],
         unique: true,
         lowercase: true,
-        trim: true
+        trim: true,
+        match: [emailPattern, 'Email must be a valid email address']
     },
     password: {
         type: String,
         // Allows local login to enforce passwords while letting OAuth bypass it
         required: function() {
             return !this.googleId && !this.facebookId && !this.tiktokId;
-        }
+        },
+        minlength: [8, 'Password must be at least 8 characters long']
     },
     googleId: {
         type: String,
@@ -33,8 +38,10 @@ const userSchema = new mongoose.Schema({
     },
     name: {
         type: String,
+        required: true,
         default: 'New User',
-        trim: true
+        trim: true,
+        minlength: [2, 'Name must be at least 2 characters long']
     },
     firstName: { type: String, trim: true, maxlength: 100 },
     secondName: { type: String, trim: true, maxlength: 100 },
@@ -51,6 +58,15 @@ const userSchema = new mongoose.Schema({
     profilePicture: {
         type: String,
         default: ''
+    },
+    avatar: {
+        type: String,
+        trim: true,
+        match: [urlPattern, 'Avatar must be a valid HTTP or HTTPS URL']
+    },
+    isActive: {
+        type: Boolean,
+        default: true
     },
     department: {
         type: String,
@@ -93,4 +109,6 @@ const userSchema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-module.exports = mongoose.model('User', userSchema);
+userSchema.index({ role: 1 });
+
+module.exports = mongoose.model('User', userSchema, 'Users');

@@ -1,14 +1,51 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PaymentForm from '../../PaymentForm';
 import FloatingChatBot from '../../components/FloatingChatBot';
 import ProfileEditor from '../../components/ProfileEditor';
+import {
+  courseCatalogStorageKey,
+  courseCatalogUpdatedEvent,
+  readStoredArray,
+  studentEnrollmentsStorageKey,
+  writeStoredArray,
+} from '../../utils/courseCatalog';
 import './StudentDashboard.css';
 
 const courses = [
-  { title: 'Introduction to UI/UX Design', category: 'Design', progress: 72, color: 'purple', initials: 'UI' },
-  { title: 'Web Development Fundamentals', category: 'Development', progress: 48, color: 'blue', initials: 'WD' },
-  { title: 'Digital Marketing Essentials', category: 'Marketing', progress: 25, color: 'orange', initials: 'DM' },
+  {
+    title: 'Introduction to UI/UX Design',
+    category: 'Design',
+    progress: 72,
+    color: 'purple',
+    initials: 'UI',
+    units: [
+      { title: 'Design foundations', topics: ['Visual hierarchy', 'Color and contrast', 'Design consistency'] },
+      { title: 'Understanding users', topics: ['User research', 'Personas and needs', 'Usability testing'] },
+    ],
+  },
+  {
+    title: 'Web Development Fundamentals',
+    category: 'Development',
+    progress: 48,
+    color: 'blue',
+    initials: 'WD',
+    units: [
+      { title: 'HTML foundations', topics: ['Semantic page structure', 'Links and images', 'Accessible forms'] },
+      { title: 'CSS and responsive design', topics: ['The CSS box model', 'Flexbox and grid', 'Responsive layouts'] },
+    ],
+  },
+  {
+    title: 'Digital Marketing Essentials',
+    category: 'Marketing',
+    progress: 25,
+    color: 'orange',
+    initials: 'DM',
+    units: [
+      { title: 'Marketing fundamentals', topics: ['Audience research', 'Value propositions', 'Campaign goals'] },
+      { title: 'Campaign planning', topics: ['Channel selection', 'Content calendars', 'Measuring results'] },
+    ],
+  },
 ];
 
 const schedule = [
@@ -22,17 +59,16 @@ const navigation = [
   { label: 'My courses', icon: 'book' },
   { label: 'Explore courses', icon: 'search' },
   { label: 'Class sessions', icon: 'calendar' },
-  { label: 'Learning materials', icon: 'book' },
   { label: 'Submissions', icon: 'upload' },
-  { label: 'Grades & feedback', icon: 'chart' },
   { label: 'Notifications & messages', icon: 'bell' },
   { label: 'Group', icon: 'people' },
   { label: 'Payment', icon: 'payment' },
   { label: 'Certificates', icon: 'certificate' },
 ];
 
-const exploreCourses = [
-  ...courses,
+const courseNavigation = ['Home', 'Content', 'Activities', 'Learning materials', 'Classlist', 'Grades', 'Help'];
+
+const additionalExploreCourses = [
   { title: 'English Communication Skills', category: 'Languages', progress: 0, color: 'green', initials: 'EN' },
   { title: 'Data Literacy for Everyone', category: 'Technology', progress: 0, color: 'blue', initials: 'DL' },
   { title: 'Project Management Basics', category: 'Business', progress: 0, color: 'orange', initials: 'PM' },
@@ -111,16 +147,73 @@ function TestDashboard() {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState('Dashboard');
   const [user, setUser] = useState(() => JSON.parse(localStorage.getItem('user_data') || '{}'));
-  const [enrolledCourses, setEnrolledCourses] = useState(courses.map((course) => course.title));
+  const [instructorCourses, setInstructorCourses] = useState(() => readStoredArray(courseCatalogStorageKey));
+  const [enrolledCourses, setEnrolledCourses] = useState(() => [
+    ...courses.map((course) => course.title),
+    ...readStoredArray(studentEnrollmentsStorageKey).filter((title) => typeof title === 'string'),
+  ]);
+  const [courseStorageError, setCourseStorageError] = useState('');
   const [sessionReminders, setSessionReminders] = useState([]);
   const [selectedFiles, setSelectedFiles] = useState({});
   const [submittedAssignments, setSubmittedAssignments] = useState([]);
   const [joinedGroups, setJoinedGroups] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(courses[0].title);
+  const [selectedTopic, setSelectedTopic] = useState({ unitIndex: 0, topicIndex: 0 });
+  const [activeCourseTab, setActiveCourseTab] = useState('Content');
+  const [activeActivitySection, setActiveActivitySection] = useState('Assignments');
+  const [activityMenuOpen, setActivityMenuOpen] = useState(false);
   const [quizAnswer, setQuizAnswer] = useState('');
   const [quizFeedback, setQuizFeedback] = useState('');
   const [quizScore, setQuizScore] = useState(null);
   const [readMessages, setReadMessages] = useState([]);
+  const publishedInstructorCourses = instructorCourses
+    .filter((course) => course.status === 'published' && course.visibility === 'Public')
+    .map((course) => ({
+      ...course,
+      progress: 0,
+      color: course.color === 'violet' ? 'purple' : course.color === 'amber' ? 'orange' : course.color,
+      initials: course.initials || course.title.split(/\s+/).slice(0, 2).map((word) => word[0]).join('').toUpperCase(),
+      units: Array.isArray(course.units) ? course.units : [],
+    }));
+  const courseCatalog = [
+    ...courses,
+    ...publishedInstructorCourses.filter((course) => !courses.some((existing) => existing.title === course.title)),
+  ];
+  const exploreCourseCatalog = [
+    ...courseCatalog,
+    ...additionalExploreCourses.filter((course) => !courseCatalog.some((existing) => existing.title === course.title)),
+  ];
+
+  useEffect(() => {
+    const syncCourseCatalog = () => setInstructorCourses(readStoredArray(courseCatalogStorageKey));
+    const syncEnrollments = (event) => {
+      if (event.key === studentEnrollmentsStorageKey) {
+        setEnrolledCourses([
+          ...courses.map((course) => course.title),
+          ...readStoredArray(studentEnrollmentsStorageKey).filter((title) => typeof title === 'string'),
+        ]);
+      }
+    };
+    window.addEventListener(courseCatalogUpdatedEvent, syncCourseCatalog);
+    window.addEventListener('storage', syncCourseCatalog);
+    window.addEventListener('storage', syncEnrollments);
+    return () => {
+      window.removeEventListener(courseCatalogUpdatedEvent, syncCourseCatalog);
+      window.removeEventListener('storage', syncCourseCatalog);
+      window.removeEventListener('storage', syncEnrollments);
+    };
+  }, []);
+
+  useEffect(() => {
+    try {
+      writeStoredArray(studentEnrollmentsStorageKey, enrolledCourses.filter((title) => !courses.some((course) => course.title === title)));
+      setCourseStorageError('');
+    } catch (error) {
+      console.error('Could not save student course enrollments to browser storage.', error);
+      setCourseStorageError('Course enrolment changes could not be saved in this browser.');
+    }
+  }, [enrolledCourses]);
+
   const handleLogout = () => {
     localStorage.removeItem('jwt_token');
     localStorage.removeItem('user_data');
@@ -174,9 +267,19 @@ function TestDashboard() {
       : 'Not quite. Visual hierarchy uses cues such as size and contrast to guide attention.');
   };
 
-  const openCourse = (title) => {
+  const openCourse = (title, tab = 'Content') => {
+    const course = courseCatalog.find((item) => item.title === title);
+    const firstUnitIndex = course?.units?.findIndex((unit) => unit.topics?.length) ?? -1;
     setSelectedCourse(title);
-    setActiveSection('Learning materials');
+    setSelectedTopic({ unitIndex: firstUnitIndex, topicIndex: firstUnitIndex >= 0 ? 0 : -1 });
+    setActiveCourseTab(tab);
+    setActiveActivitySection('Assignments');
+    setActivityMenuOpen(false);
+    setActiveSection('Course modules');
+  };
+
+  const resumeCourse = (title) => {
+    openCourse(title, 'Learning materials');
   };
 
   const toggleMessageRead = (messageId) => {
@@ -188,8 +291,241 @@ function TestDashboard() {
   };
 
   const renderSection = () => {
+    if (activeSection === 'Course modules') {
+      const course = courseCatalog.find((item) => item.title === selectedCourse);
+      const courseMaterials = learningMaterials.filter((material) => material.course === selectedCourse);
+      const courseAssignments = assignments.filter((assignment) => assignment.course === selectedCourse);
+      const currentUnit = course?.units?.[selectedTopic.unitIndex];
+      const topic = currentUnit?.topics?.[selectedTopic.topicIndex];
+      const topicTitle = typeof topic === 'string' ? topic : topic?.title || topic?.name || 'Untitled topic';
+      const topicContent = typeof topic === 'object' && topic
+        ? topic.content || topic.description || topic.text
+        : '';
+      return (
+        <section className="section-page">
+          <div className="section-intro">
+            <span className="eyebrow">COURSE CURRICULUM</span>
+            <h1>{course?.title || 'Course modules'}</h1>
+            <p>Choose a topic from the course outline to view its lesson content.</p>
+            <button className="text-link course-back-link" onClick={() => setActiveSection('My courses')} type="button">
+              <Icon name="arrow" size={14} /> Back to my courses
+            </button>
+          </div>
+          <nav className="student-course-tabs" aria-label={`${course?.title || 'Course'} sections`}>
+            {courseNavigation.map((tab) => tab === 'Activities' ? (
+              <div className="student-course-tab-dropdown" key={tab}>
+                <button
+                  aria-current={activeCourseTab === tab ? 'page' : undefined}
+                  aria-expanded={activityMenuOpen}
+                  aria-haspopup="true"
+                  className={`student-course-tab${activeCourseTab === tab ? ' is-active' : ''}`}
+                  onClick={() => {
+                    setActiveCourseTab('Activities');
+                    setActivityMenuOpen((isOpen) => !isOpen);
+                  }}
+                  type="button"
+                >
+                  Activities <span className="student-course-tab-caret" aria-hidden="true" />
+                </button>
+                {activityMenuOpen && (
+                  <div className="student-course-tab-menu" aria-label="Activity sections">
+                    {['Assignments', 'Quizzes', 'Discussions'].map((section) => (
+                      <button
+                        aria-current={activeActivitySection === section ? 'page' : undefined}
+                        className={activeActivitySection === section ? 'is-active' : ''}
+                        key={section}
+                        onClick={() => {
+                          setActiveActivitySection(section);
+                          setActiveCourseTab('Activities');
+                          setActivityMenuOpen(false);
+                        }}
+                        type="button"
+                      >
+                        {section}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                aria-current={activeCourseTab === tab ? 'page' : undefined}
+                className={`student-course-tab${activeCourseTab === tab ? ' is-active' : ''}`}
+                key={tab}
+                onClick={() => {
+                  setActiveCourseTab(tab);
+                  setActivityMenuOpen(false);
+                }}
+                type="button"
+              >
+                {tab}
+              </button>
+            ))}
+          </nav>
+          {activeCourseTab === 'Content' && (course?.units?.length ? (
+            <div className="student-course-layout">
+              <aside className="panel student-course-outline">
+                <h2>Course units</h2>
+                <nav aria-label={`${course.title} units and topics`}>
+                  {course.units.map((unit, unitIndex) => (
+                    <section className="student-outline-unit" key={`${unit.title}-${unitIndex}`}>
+                      <h3><span>Unit {unitIndex + 1}</span>{unit.title}</h3>
+                      {unit.topics?.length ? (
+                        <ul>
+                          {unit.topics.map((unitTopic, topicIndex) => {
+                            const title = typeof unitTopic === 'string'
+                              ? unitTopic
+                              : unitTopic?.title || unitTopic?.name || 'Untitled topic';
+                            const isSelected = selectedTopic.unitIndex === unitIndex
+                              && selectedTopic.topicIndex === topicIndex;
+                            return (
+                              <li key={`${title}-${topicIndex}`}>
+                                <button
+                                  aria-current={isSelected ? 'page' : undefined}
+                                  className={`student-outline-topic${isSelected ? ' is-active' : ''}`}
+                                  onClick={() => setSelectedTopic({ unitIndex, topicIndex })}
+                                  type="button"
+                                >
+                                  {title}
+                                </button>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      ) : <p className="student-outline-empty">No topics in this unit yet.</p>}
+                    </section>
+                  ))}
+                </nav>
+              </aside>
+              <article className="panel student-topic-content" aria-live="polite">
+                {topic ? (
+                  <>
+                    <span className="eyebrow">UNIT {selectedTopic.unitIndex + 1} · TOPIC {selectedTopic.topicIndex + 1}</span>
+                    <h2>{topicTitle}</h2>
+                    {topicContent ? (
+                      <div className="student-topic-body">
+                        {String(topicContent).split(/\n+/).filter(Boolean).map((paragraph, index) => (
+                          <p key={`${index}-${paragraph}`}>{paragraph}</p>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="student-topic-empty">Learning content for this topic hasn’t been added yet.</p>
+                    )}
+                    {typeof topic === 'object' && topic?.contentUrl && (
+                      <a className="action-button student-topic-resource" href={topic.contentUrl} target="_blank" rel="noreferrer">
+                        Open lesson resource <Icon name="arrow" size={14} />
+                      </a>
+                    )}
+                  </>
+                ) : (
+                  <p className="student-topic-empty">Select a topic from the course outline to get started.</p>
+                )}
+              </article>
+            </div>
+          ) : <div className="panel section-empty">No units have been added to this course yet.</div>)}
+          {activeCourseTab === 'Home' && (
+            <div className="panel student-course-home">
+              <div className={`course-cover ${course?.color || 'purple'}`}><span>{course?.initials || 'C'}</span></div>
+              <span className="course-category">{course?.category || 'Course'}</span>
+              <h2>{course?.title || 'Course overview'}</h2>
+              <p>Continue your learning or explore the course content, activities, and progress from the sections above.</p>
+              <div className="course-progress-label"><span>{course?.progress || 0}% complete</span><span>{course?.units?.length || 0} units</span></div>
+              <div className="progress-track"><span className={course?.color || 'purple'} style={{ width: `${course?.progress || 0}%` }} /></div>
+              <button className="action-button" onClick={() => setActiveCourseTab('Content')} type="button">Continue learning</button>
+            </div>
+          )}
+          {activeCourseTab === 'Activities' && (
+            <div className="panel section-list-panel student-course-tab-panel">
+              <h2 className="timeline-heading">{activeActivitySection}</h2>
+              {activeActivitySection === 'Assignments' && (courseAssignments.length ? courseAssignments.map((assignment) => (
+                <article className="section-list-item" key={assignment.id}>
+                  <div className="stat-icon stat-purple"><Icon name="upload" size={18} /></div>
+                  <div className="section-list-info"><h2>{assignment.title}</h2><p>Assignment · {assignment.due}</p></div>
+                  <button className="action-button" onClick={() => setActiveSection('Submissions')} type="button">Open activity</button>
+                </article>
+              )) : <p className="section-empty">There are no assignments for this course yet.</p>)}
+              {activeActivitySection === 'Quizzes' && (quiz.course === selectedCourse ? (
+                <article className="section-list-item">
+                  <div className="stat-icon stat-purple"><Icon name="check" size={18} /></div>
+                  <div className="section-list-info"><h2>{quiz.title}</h2><p>Practice quiz · No time limit</p></div>
+                  <button className="action-button" onClick={() => setActiveSection('Submissions')} type="button">Open quiz</button>
+                </article>
+              ) : <p className="section-empty">There are no quizzes for this course yet.</p>)}
+              {activeActivitySection === 'Discussions' && (
+                <p className="section-empty">There are no discussions for this course yet.</p>
+              )}
+            </div>
+          )}
+          {activeCourseTab === 'Learning materials' && (
+            <div className="panel section-list-panel student-course-tab-panel">
+              <h2 className="timeline-heading">Learning materials</h2>
+              <p className="student-topic-empty">Download notes and offline modules for this course.</p>
+              {courseMaterials.map((material) => (
+                <article className="section-list-item material-item" key={material.id}>
+                  <div className="stat-icon stat-purple"><Icon name={material.unavailable ? 'play' : 'book'} size={19} /></div>
+                  <div className="section-list-info">
+                    <h2>{material.title}</h2>
+                    <p>{material.type} · {material.unavailable ? 'Not available yet' : 'Available offline after download'}</p>
+                  </div>
+                  {material.unavailable
+                    ? <span className="material-unavailable">Recording unavailable</span>
+                    : <button className="action-button" type="button" onClick={() => downloadMaterial(material)}>Download for offline</button>}
+                </article>
+              ))}
+              {!courseMaterials.length && <p className="section-empty">No materials are listed for this course yet.</p>}
+              <p className="demo-note">Downloads are text study resources for this dashboard preview. Video recordings and course-server materials are not connected.</p>
+            </div>
+          )}
+          {activeCourseTab === 'Classlist' && (
+            <div className="panel student-course-tab-panel student-course-notice">
+              <span className="stat-icon stat-blue"><Icon name="people" size={19} /></span>
+              <h2>Classlist</h2>
+              <p>The class list for this course is not available yet.</p>
+            </div>
+          )}
+          {activeCourseTab === 'Grades' && (
+            <div className="panel section-list-panel student-course-tab-panel">
+              <h2 className="timeline-heading">Course grades</h2>
+              {courseAssignments.map((assignment) => {
+                const submitted = submittedAssignments.includes(assignment.id);
+                return (
+                  <article className="section-list-item" key={assignment.id}>
+                    <div className={`stat-icon ${submitted ? 'stat-green' : 'stat-purple'}`}><Icon name={submitted ? 'check' : 'upload'} size={18} /></div>
+                    <div className="section-list-info"><h2>{assignment.title}</h2><p>{submitted ? 'Submitted · awaiting instructor feedback' : 'Not submitted'}</p></div>
+                    <span className={`grade-status${submitted ? ' is-submitted' : ''}`}>{submitted ? 'Awaiting review' : 'Not graded'}</span>
+                  </article>
+                );
+              })}
+              {quiz.course === selectedCourse && (
+                <article className="section-list-item">
+                  <div className={`stat-icon ${quizScore === 100 ? 'stat-green' : 'stat-purple'}`}><Icon name={quizScore === 100 ? 'check' : 'chart'} size={18} /></div>
+                  <div className="section-list-info"><h2>{quiz.title}</h2><p>Practice quiz</p></div>
+                  <span className="grade-status">{quizScore === null ? 'Not taken' : `${quizScore}%`}</span>
+                </article>
+              )}
+              {quiz.course === selectedCourse && quizScore !== null && quizFeedback && (
+                <div className="panel feedback-record">
+                  <strong>Practice quiz feedback</strong>
+                  <p>{quizFeedback}</p>
+                </div>
+              )}
+              {!courseAssignments.length && quiz.course !== selectedCourse && <p className="section-empty">No grades are available for this course yet.</p>}
+            </div>
+          )}
+          {activeCourseTab === 'Help' && (
+            <div className="panel student-course-tab-panel student-course-notice">
+              <span className="help-icon">?</span>
+              <h2>Need help with this course?</h2>
+              <p>Contact the TusomeTec learning team for assistance.</p>
+              <a className="action-button" href="mailto:support@tusometec.com">Contact support</a>
+            </div>
+          )}
+        </section>
+      );
+    }
+
     if (activeSection === 'My courses') {
-      const enrolled = courses.filter((course) => enrolledCourses.includes(course.title));
+      const enrolled = courseCatalog.filter((course) => enrolledCourses.includes(course.title));
       return (
         <section className="section-page">
           <div className="section-intro">
@@ -203,11 +539,12 @@ function TestDashboard() {
                 <article className="section-card enrolled-course-card" key={course.title}>
                   <div className={`course-cover ${course.color}`}><span>{course.initials}</span></div>
                   <span className="course-category">{course.category}</span>
-                  <h2>{course.title}</h2>
+                  <button className="course-title-link" onClick={() => openCourse(course.title)} type="button">{course.title}</button>
                   <div className="course-progress-label"><span>{course.progress}% complete</span><span>{Math.ceil((100 - course.progress) / 10)} lessons left</span></div>
                   <div className="progress-track"><span className={course.color} style={{ width: `${course.progress}%` }} /></div>
-                  <button className="action-button" onClick={() => openCourse(course.title)} type="button">Quick resume</button>
-                  <button className="text-link" onClick={() => { setSelectedCourse(course.title); setActiveSection('Learning materials'); }} type="button">View learning materials <Icon name="arrow" size={14} /></button>
+                  <button className="action-button" onClick={() => resumeCourse(course.title)} type="button">Quick resume</button>
+                  <button className="text-link" onClick={() => openCourse(course.title)} type="button">View units &amp; topics <Icon name="arrow" size={14} /></button>
+                  <button className="text-link" onClick={() => openCourse(course.title, 'Learning materials')} type="button">View learning materials <Icon name="arrow" size={14} /></button>
                 </article>
               ))}
             </div>
@@ -225,7 +562,7 @@ function TestDashboard() {
             <p>Browse learning paths and manage your course enrolments.</p>
           </div>
           <div className="section-card-grid">
-            {exploreCourses.map((course) => {
+            {exploreCourseCatalog.map((course) => {
               const isEnrolled = enrolledCourses.includes(course.title);
               return (
                 <article className="section-card explore-card" key={course.title}>
@@ -233,6 +570,7 @@ function TestDashboard() {
                   <span className="course-category">{course.category}</span>
                   <h2>{course.title}</h2>
                   <p>{isEnrolled ? `${course.progress}% complete · Continue learning at your own pace.` : 'A practical course with guided lessons and activities.'}</p>
+                  <button className="text-link" onClick={() => openCourse(course.title)} type="button">View units &amp; topics <Icon name="arrow" size={14} /></button>
                   <button className={`action-button${isEnrolled ? ' secondary' : ''}`} onClick={() => toggleEnrollment(course.title)} type="button">
                     {isEnrolled ? 'Enrolled · Remove' : 'Enroll now'}
                   </button>
@@ -249,8 +587,8 @@ function TestDashboard() {
         <section className="section-page">
           <div className="section-intro">
             <span className="eyebrow">YOUR LEARNING CALENDAR</span>
-            <h1>Upcoming deadlines &amp; classes</h1>
-            <p>Keep assignment due dates and live lecture reminders together in one timeline.</p>
+            <h1>Upcoming Classes</h1>
+            <p>View your upcoming live classes and set reminders.</p>
           </div>
           <div className="panel section-list-panel">
             <h2 className="timeline-heading">Live classes</h2>
@@ -269,52 +607,7 @@ function TestDashboard() {
                 </article>
               );
             })}
-            <h2 className="timeline-heading">Assignment deadlines</h2>
-            {assignments.map((assignment) => (
-              <article className="section-list-item deadline-item" key={assignment.id}>
-                <div className="deadline-marker"><Icon name="upload" size={17} /></div>
-                <div className="section-list-info">
-                  <h2>{assignment.title}</h2>
-                  <p>{assignment.course} · {assignment.due}</p>
-                </div>
-                <button className="action-button secondary" onClick={() => setActiveSection('Submissions')} type="button">Open submission</button>
-              </article>
-            ))}
           </div>
-        </section>
-      );
-    }
-
-    if (activeSection === 'Learning materials') {
-      const courseMaterials = learningMaterials.filter((material) => material.course === selectedCourse);
-      return (
-        <section className="section-page">
-          <div className="section-intro">
-            <span className="eyebrow">STUDY ANYWHERE</span>
-            <h1>Learning materials</h1>
-            <p>Download notes and offline modules for low-connectivity study. Select an enrolled course.</p>
-          </div>
-          <label className="material-course-select">Course
-            <select value={selectedCourse} onChange={(event) => setSelectedCourse(event.target.value)}>
-              {courses.filter((course) => enrolledCourses.includes(course.title)).map((course) => <option key={course.title}>{course.title}</option>)}
-            </select>
-          </label>
-          <div className="panel section-list-panel">
-            {courseMaterials.map((material) => (
-              <article className="section-list-item material-item" key={material.id}>
-                <div className="stat-icon stat-purple"><Icon name={material.unavailable ? 'play' : 'book'} size={19} /></div>
-                <div className="section-list-info">
-                  <h2>{material.title}</h2>
-                  <p>{material.type} · {material.unavailable ? 'Not available yet' : 'Available offline after download'}</p>
-                </div>
-                {material.unavailable
-                  ? <span className="material-unavailable">Recording unavailable</span>
-                  : <button className="action-button" type="button" onClick={() => downloadMaterial(material)}>Download for offline</button>}
-              </article>
-            ))}
-            {!courseMaterials.length && <p className="section-empty">No materials are listed for this course yet.</p>}
-          </div>
-          <p className="demo-note">Downloads are text study resources for this dashboard preview. Video recordings and course-server materials are not connected.</p>
         </section>
       );
     }
@@ -380,41 +673,6 @@ function TestDashboard() {
             })}
           </div>
           <p className="demo-note">Homework submissions are recorded in this dashboard preview only and are not uploaded to a course server. Quiz feedback is immediate practice feedback.</p>
-        </section>
-      );
-    }
-
-    if (activeSection === 'Grades & feedback') {
-      return (
-        <section className="section-page">
-          <div className="section-intro">
-            <span className="eyebrow">YOUR LEARNING RECORD</span>
-            <h1>Grades &amp; feedback</h1>
-            <p>Review practice results, assignment status, instructor feedback, and certificates.</p>
-          </div>
-          <div className="grade-summary-grid">
-            <article className="panel grade-summary-card"><span>Practice quiz score</span><strong>{quizScore === null ? 'Not taken' : `${quizScore}%`}</strong><button className="text-link" onClick={() => setActiveSection('Submissions')} type="button">Open quiz <Icon name="arrow" size={14} /></button></article>
-            <article className="panel grade-summary-card"><span>Assignments submitted</span><strong>{submittedAssignments.length} / {assignments.length}</strong><button className="text-link" onClick={() => setActiveSection('Submissions')} type="button">Open submissions <Icon name="arrow" size={14} /></button></article>
-          </div>
-          <div className="panel section-list-panel grade-list">
-            {assignments.map((assignment) => {
-              const submitted = submittedAssignments.includes(assignment.id);
-              return (
-                <article className="section-list-item" key={assignment.id}>
-                  <div className={`stat-icon ${submitted ? 'stat-green' : 'stat-purple'}`}><Icon name={submitted ? 'check' : 'upload'} size={18} /></div>
-                  <div className="section-list-info"><h2>{assignment.title}</h2><p>{assignment.course} · {submitted ? 'Submitted · awaiting instructor feedback' : 'Not submitted'}</p></div>
-                  <span className={`grade-status${submitted ? ' is-submitted' : ''}`}>{submitted ? 'Awaiting review' : 'Not submitted'}</span>
-                </article>
-              );
-            })}
-          </div>
-          {quizScore !== null && <div className="panel feedback-record"><strong>Practice quiz feedback</strong><p>{quizFeedback}</p></div>}
-          <div className="panel feedback-record">
-            <strong>Digital certificates</strong>
-            <p>Certificates are issued after course completion. None are available yet.</p>
-            <button className="text-link" onClick={() => setActiveSection('Certificates')} type="button">View certificates <Icon name="arrow" size={14} /></button>
-          </div>
-          <p className="demo-note">Official course grades and instructor comments appear here when connected to the learning records service.</p>
         </section>
       );
     }
@@ -544,7 +802,7 @@ function TestDashboard() {
             >
               <Icon name={item.icon} size={19} />
               <span>{item.label}</span>
-              {item.label === 'Explore courses' && <span className="nav-count">{exploreCourses.length}</span>}
+              {item.label === 'Explore courses' && <span className="nav-count">{exploreCourseCatalog.length}</span>}
               {item.label === 'Submissions' && <span className="nav-count">{assignments.length - submittedAssignments.length}</span>}
               {item.label === 'Notifications & messages' && <span className="nav-count">{studentMessages.filter((message) => !readMessages.includes(message.id)).length}</span>}
             </button>
@@ -609,6 +867,7 @@ function TestDashboard() {
         </nav>
 
         <div className="dashboard-content">
+          {courseStorageError && <p className="course-storage-error" role="alert">{courseStorageError}</p>}
           {activeSection !== 'Dashboard' ? (
             <>
               {renderSection()}
@@ -635,7 +894,7 @@ function TestDashboard() {
           <section className="stats-grid" aria-label="Learning summary">
             <article className="stat-card">
               <span className="stat-icon stat-purple"><Icon name="book" size={19} /></span>
-              <div><span className="stat-label">Enrolled courses</span><strong>3</strong><span className="stat-note">Keep exploring</span></div>
+              <div><span className="stat-label">Enrolled courses</span><strong>{courseCatalog.filter((course) => enrolledCourses.includes(course.title)).length}</strong><span className="stat-note">Keep exploring</span></div>
             </article>
             <article className="stat-card">
               <span className="stat-icon stat-blue"><Icon name="clock" size={19} /></span>
@@ -658,16 +917,18 @@ function TestDashboard() {
                 <button onClick={() => setActiveSection('My courses')} className="text-link" type="button">View all <Icon name="arrow" size={16} /></button>
               </div>
               <div className="course-list">
-                {courses.map((course) => (
+                {courseCatalog.filter((course) => enrolledCourses.includes(course.title)).map((course) => (
                   <article className="course-card" key={course.title}>
-                    <div className={`course-cover ${course.color}`}><span>{course.initials}</span></div>
-                    <div className="course-info">
-                      <span className="course-category">{course.category}</span>
-                      <h3>{course.title}</h3>
-                      <div className="course-progress-label"><span>{course.progress}% complete</span><span>{Math.ceil((100 - course.progress) / 10)} lessons left</span></div>
-                      <div className="progress-track"><span className={course.color} style={{ width: `${course.progress}%` }} /></div>
-                    </div>
-                    <button className="course-play" onClick={() => openCourse(course.title)} type="button" aria-label={`Continue ${course.title}`}><Icon name="play" size={18} /></button>
+                    <button className="course-card-open" onClick={() => openCourse(course.title)} type="button" aria-label={`Open ${course.title} units and topics`}>
+                      <div className={`course-cover ${course.color}`}><span>{course.initials}</span></div>
+                      <div className="course-info">
+                        <span className="course-category">{course.category}</span>
+                        <h3>{course.title}</h3>
+                        <div className="course-progress-label"><span>{course.progress}% complete</span><span>{Math.ceil((100 - course.progress) / 10)} lessons left</span></div>
+                        <div className="progress-track"><span className={course.color} style={{ width: `${course.progress}%` }} /></div>
+                      </div>
+                    </button>
+                    <button className="course-play" onClick={() => resumeCourse(course.title)} type="button" aria-label={`Quick resume ${course.title}`}><Icon name="play" size={18} /></button>
                   </article>
                 ))}
               </div>

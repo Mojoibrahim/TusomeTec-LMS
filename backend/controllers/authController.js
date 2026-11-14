@@ -9,7 +9,7 @@ const generateOTP = () => Math.floor(100000 + Math.random() * 900000).toString()
 // Registration Controller
 exports.registerUser = async(req, res) => {
     try {
-        const { email, password, name, role } = req.body;
+        const { email, password, name } = req.body;
 
         if (!email || !password) {
             return res.status(400).json({ message: 'Email and password are required' });
@@ -24,15 +24,12 @@ exports.registerUser = async(req, res) => {
         const hashedPassword = await bcrypt.hash(password, salt);
         const otp = generateOTP();
 
-    // Allow selection of role, but ensure it adheres to valid values; fallback to 'student'
-        const assignedRole = ['admin', 'instructor', 'student'].includes(role) ? role : 'student';
-
         const newUser = new User({
             email,
             password: hashedPassword,
             name: name || 'New User',
             department: 'Data Annotation',
-            role: assignedRole,
+            role: 'student',
             otp: otp,
             otpExpiry: Date.now() + 10 * 60 * 1000 // 10 minutes
         });
@@ -115,7 +112,7 @@ exports.verifyOTP = async(req, res) => {
 
     // Include role directly into JWT token payload
         const token = jwt.sign({ id: user._id, role: user.role },
-            process.env.JWT_SECRET || 'supersecretkey', { expiresIn: '1d' }
+            process.env.JWT_SECRET, { expiresIn: '1d' }
         );
 
         res.status(200).json({
@@ -175,7 +172,7 @@ exports.getOAuthSession = (req, res) => {
         phoneNumber: req.user.phoneNumber
     };
     const token = jwt.sign({ id: user.id, role: user.role },
-        process.env.JWT_SECRET || 'supersecretkey', { expiresIn: '1d' }
+        process.env.JWT_SECRET, { expiresIn: '1d' }
     );
 
     return res.status(200).json({ token, user });
